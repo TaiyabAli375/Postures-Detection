@@ -9,9 +9,12 @@ import androidx.lifecycle.ViewModel
 class PosturesViewModel(private  val repository: PostureRepository): ViewModel() {
     private val mutablePostures = MutableLiveData<Postures>()
     val postures: LiveData<Postures> = mutablePostures
+    private val mutableBitmapWithSkeleton = MutableLiveData<Bitmap>()
+    val bitmapWithSkeleton: LiveData<Bitmap> = mutableBitmapWithSkeleton
     fun processImage(imageBmp: Bitmap){
-        repository.detectPose(imageBmp){results ->
-            mutablePostures.postValue(results)
+        repository.detectPose(imageBmp){postures, bitmapWithSkeleton ->
+            mutablePostures.postValue(postures)
+            mutableBitmapWithSkeleton.postValue(bitmapWithSkeleton)
         }
     }
 }

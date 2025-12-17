@@ -5,10 +5,13 @@ import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
@@ -22,6 +25,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import com.google.mlkit.vision.pose.Pose
 
  class MainActivity : AppCompatActivity() {
      var cameraActivityResultLauncher: ActivityResultLauncher<Intent> = registerForActivityResult(
@@ -36,6 +40,7 @@ import androidx.lifecycle.ViewModelProvider
      )
      private lateinit var imageView: ImageView
      private lateinit var cameraBtn: Button
+     private lateinit var sidePoseBtn: Button
      private lateinit var resultTv: TextView
      private lateinit var viewModel: PosturesViewModel
      override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,6 +58,7 @@ import androidx.lifecycle.ViewModelProvider
 
          imageView = findViewById(R.id.imageView)
          cameraBtn = findViewById(R.id.cameraBtn)
+         sidePoseBtn = findViewById(R.id.sidePoseAnalysisBtn)
          resultTv = findViewById(R.id.resultTv)
 
          checkAndRequestpermission()
@@ -96,19 +102,41 @@ import androidx.lifecycle.ViewModelProvider
          cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, image_Uri)
          cameraActivityResultLauncher.launch(cameraIntent)
      }
-     fun observePostures(){
-         viewModel.postures.observe(this,
-             Observer {
-             when {
-                 it.isSitting -> resultTv.text = "Person is sitting"
-                 it.isStanding -> resultTv.text = "Person is standing"
-                 else -> resultTv.text = "Unknown"
-             }
-         })
-     }
+fun observePostures() {
+    viewModel.bitmapWithSkeleton.observe(this, Observer{
+        imageView.setImageBitmap(it)
+    })
+    viewModel.postures.observe(this) { posture ->
+
+        val status = StringBuilder()
+        Log.d("Is Sitting","${posture.isSitting}")
+        if (posture.isSitting) {
+            status.append("Person is sitting with ")
+        }
+        else if (posture.isStanding) {
+            status.append("Person is standing with ")
+        }
+
+        when (posture.neckTilt) {
+            NeckPosture.TILTED_LEFT ->
+                status.append("neck tilted left")
+
+            NeckPosture.TILTED_RIGHT ->
+                status.append("neck tilted right")
+
+            NeckPosture.STRAIGHT ->
+                status.append("neck straight")
+
+            else -> status.append("Unknown neck posture")
+        }
+
+        resultTv.text =
+            if (status.isNotEmpty()) status.toString()
+            else "Unknown"
+    }
+}
      fun uriToBitmap(uri: Uri): Bitmap{
          val imageBmp = MediaStore.Images.Media.getBitmap(contentResolver, uri)
          return imageBmp
      }
-
  }
