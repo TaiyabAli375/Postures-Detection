@@ -11,10 +11,13 @@ class PosturesViewModel(private  val repository: PostureRepository): ViewModel()
     val postures: LiveData<Postures> = mutablePostures
     private val mutableBitmapWithSkeleton = MutableLiveData<Bitmap>()
     val bitmapWithSkeleton: LiveData<Bitmap> = mutableBitmapWithSkeleton
+    private val mutableBmpForSidePose = MutableLiveData<Bitmap>()
+    val bmpForSidePose: LiveData<Bitmap> = mutableBmpForSidePose
     fun processImage(imageBmp: Bitmap){
         repository.detectPose(imageBmp){postures, bitmapWithSkeleton ->
             mutablePostures.postValue(postures)
             mutableBitmapWithSkeleton.postValue(bitmapWithSkeleton)
         }
+        mutableBmpForSidePose.postValue(imageBmp)
     }
 }
