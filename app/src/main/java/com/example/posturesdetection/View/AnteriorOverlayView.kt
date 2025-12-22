@@ -39,8 +39,9 @@ class AnteriorOverlayView @JvmOverloads constructor(context: Context, attrs: Att
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        if (joints.size < 13) return
+        if (joints.size < 15) return
 
+        drawLineInJoints(joints[13],joints[14],canvas)
         drawLineInJoints(joints[1],joints[2],canvas)
         drawLineInJoints(joints[2],joints[3],canvas)
         drawLineInJoints(joints[3],joints[4],canvas)
@@ -57,8 +58,7 @@ class AnteriorOverlayView @JvmOverloads constructor(context: Context, attrs: Att
 
         drawJoints(canvas)
 
-
-
+        drawAngle(joints[1],joints[14],joints[13],canvas)
         drawAngle(joints[1],joints[9],joints[10],canvas)
         drawAngle(joints[1],joints[2],joints[3],canvas)
         drawAngle(joints[2],joints[3],joints[4],canvas)
@@ -100,7 +100,8 @@ class AnteriorOverlayView @JvmOverloads constructor(context: Context, attrs: Att
             style = Paint.Style.FILL
             isAntiAlias = true
         }
-        for (joint in joints) {
+        for (i in 1..14) {
+            val joint = joints[i]
             canvas.drawCircle(
                 scalex(joint.x),
                 scaley(joint.y),

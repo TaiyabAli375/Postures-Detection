@@ -23,6 +23,8 @@ class PostureRepository() {
     private var rightKnee: PointF3D? = null
     private var leftAnkle: PointF3D? = null
     private var rightAnkle: PointF3D? = null
+    private  var leftToe: PointF3D? = null
+    private  var rightToe: PointF3D? = null
 
 
     init {
@@ -43,11 +45,16 @@ class PostureRepository() {
                 rightKnee = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)?.position3D
                 leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)?.position3D
                 rightAnkle = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)?.position3D
+                leftToe = pose.getPoseLandmark(PoseLandmark.LEFT_FOOT_INDEX)?.position3D
+                rightToe = pose.getPoseLandmark(PoseLandmark.RIGHT_FOOT_INDEX)?.position3D
+
                 val postures = Postures(
                     isSitting = detectSitting(),
                     isStanding = detectStanding(),
                     neckTilt = detectNeckTilt(pose),
-                    shoulderDrop = detectShoulderDrop(pose)
+                    shoulderDrop = detectShoulderDrop(pose),
+                    isVarusOrValgus = isVarusOrValgus(),
+                    hipHike = detectHipHike(pose)
                 )
 //                val bitmapWithSkeleton = drawSkeletonOnBitmap(imageBmp,pose)
                 val joints = landmarksForOverlay(pose)
@@ -131,6 +138,32 @@ class PostureRepository() {
             else -> "Left shoulder dropped"
         }
     }
+    fun isVarusOrValgus(): String{
+        val leftKneeAngle = getAngle(leftHip,leftKnee, leftToe)
+        val rightKneeAngle = getAngle(rightHip,rightKnee, rightToe)
+        Log.d("Left Knee Angle","$leftKneeAngle")
+        Log.d("Right Knee Angle","$rightKneeAngle")
+
+        val isVarus = (leftKneeAngle < 170) && (rightKneeAngle < 170)
+        val isValgus = (leftKneeAngle > 180) && (rightKneeAngle > 180)
+        return when{
+            (leftKneeAngle < 173) && (rightKneeAngle < 173) -> "Valgus"
+            (leftKneeAngle > 180) && (rightKneeAngle > 180) -> "Vargus"
+            else -> "Normal"
+        }
+    }
+    fun detectHipHike(pose: Pose): String{
+        val threshold: Float = 0.05f
+        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
+        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
+        if(rightHip == null || leftHip == null) return "Not detected"
+        val diff = rightHip.position.y- leftHip.position.y
+        return when{
+            abs(diff) < threshold -> "Normal"
+            diff > threshold -> "Right hip hike"
+            else -> "Left hip hike"
+        }
+    }
     fun getAngle(a: PointF3D?, b: PointF3D?, c: PointF3D?): Double {
         if (a == null || b == null || c == null) return 0.0
         val ab = doubleArrayOf(
@@ -166,6 +199,8 @@ class PostureRepository() {
         val leftWrist = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
         val rightElbow = pose.getPoseLandmark(PoseLandmark.RIGHT_ELBOW)
         val rightWrist = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
+        val nose = pose.getPoseLandmark(PoseLandmark.NOSE)
+
 
         if (leftEar == null ||
             leftShoulder == null ||
@@ -179,10 +214,13 @@ class PostureRepository() {
             rightKnee == null ||
             rightAnkle == null ||
             rightElbow == null ||
-            rightWrist == null
+            rightWrist == null ||
+            nose == null
             ) {
             return emptyList()
         }
+        val midShoulderX = (leftShoulder.position.x + rightShoulder.position.x) / 2f
+        val midShoulderY = (leftShoulder.position.y + rightShoulder.position.y) / 2f
 
         return listOf(
             Joint("Head", leftEar.position.x, leftEar.position.y),
@@ -197,7 +235,9 @@ class PostureRepository() {
             Joint("Left Elbow", leftElbow.position.x, leftElbow.position.y),
             Joint("Left Wrist", leftWrist.position.x, leftWrist.position.y),
             Joint("Right Elbow", rightElbow.position.x, rightElbow.position.y),
-            Joint("Right Wrist", rightWrist.position.x, rightWrist.position.y)
+            Joint("Right Wrist", rightWrist.position.x, rightWrist.position.y),
+            Joint("Nose", nose.position.x, nose.position.y),
+            Joint("Mid Shoulder", midShoulderX, midShoulderY)
         )
     }
 }

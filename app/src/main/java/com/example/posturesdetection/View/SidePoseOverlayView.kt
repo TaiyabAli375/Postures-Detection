@@ -10,22 +10,6 @@ import kotlin.math.*
 data class Joint(val name: String, var x: Float, var y: Float)
 
 class SidePoseOverlayView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
-    private val jointPaint = Paint().apply {
-        color = Color.RED
-        style = Paint.Style.FILL
-        isAntiAlias = true
-    }
-    private val linePaint = Paint().apply {
-        color = Color.GREEN
-        strokeWidth = 6f
-        isAntiAlias = true
-    }
-
-    private val textPaint = Paint().apply {
-        color = Color.BLUE
-        textSize = 37f
-        isAntiAlias = true
-    }
     private val joints = mutableListOf<Joint>()
 
     private var imageWidth = 1f
@@ -38,7 +22,6 @@ class SidePoseOverlayView @JvmOverloads constructor(context: Context, attrs: Att
         imageWidth = max(1f, w)
         imageHeight = max(1f, h)
     }
-
     fun setJoints(jointList: List<Joint>) {
         joints.clear()
         joints.addAll(jointList)
@@ -53,81 +36,17 @@ class SidePoseOverlayView @JvmOverloads constructor(context: Context, attrs: Att
 
         if (joints.size < 5) return
 
-        val head = joints[0]
-        val shoulder = joints[1]
-        val hip = joints[2]
-        val knee = joints[3]
-        val ankle = joints[4]
+        drawLineInJoints(joints[0],joints[1],canvas)
+        drawLineInJoints(joints[1],joints[2],canvas)
+        drawLineInJoints(joints[2],joints[3],canvas)
+        drawLineInJoints(joints[3],joints[4],canvas)
 
-        // Draw bones
-        canvas.drawLine(
-            scalex(head.x), scaley(head.y),
-            scalex(shoulder.x), scaley(shoulder.y),
-            linePaint
-        )
-        canvas.drawLine(
-            scalex(shoulder.x), scaley(shoulder.y),
-            scalex(hip.x), scaley(hip.y),
-            linePaint
-        )
-        canvas.drawLine(
-            scalex(hip.x), scaley(hip.y),
-            scalex(knee.x), scaley(knee.y),
-            linePaint
-        )
-        canvas.drawLine(
-            scalex(knee.x), scaley(knee.y),
-            scalex(ankle.x), scaley(ankle.y),
-            linePaint
-        )
+        drawJoints(canvas)
 
-        for (i in 0..4) {
-            val joint = joints[i]
-            canvas.drawCircle(
-                scalex(joint.x),
-                scaley(joint.y),
-                18f,
-                jointPaint
-            )
-        }
-
-        val angleShoulder = calculateAngle(
-            PointF(scalex(head.x), scaley(head.y)),
-            PointF(scalex(shoulder.x), scaley(shoulder.y)),
-            PointF(scalex(hip.x), scaley(hip.y))
-        )
-        canvas.drawText(
-            ("${joints[1].name} " + "%.1f°").format(angleShoulder),
-            scalex(shoulder.x) + 20,
-            scaley(shoulder.y) - 20,
-            textPaint
-        )
-       // --------------------------------
-        val angleHip = calculateAngle(
-            PointF(scalex(shoulder.x), scaley(shoulder.y)),
-            PointF(scalex(hip.x), scaley(hip.y)),
-            PointF(scalex(knee.x), scaley(knee.y))
-        )
-        canvas.drawText(
-            ("${joints[2].name} " + "%.1f°").format(angleHip),
-            scalex(hip.x) + 20,
-            scaley(hip.y) - 20,
-            textPaint
-        )
-       // ----------------------------------
-        val angleKnee = calculateAngle(
-            PointF(scalex(hip.x), scaley(hip.y)),
-            PointF(scalex(knee.x), scaley(knee.y)),
-            PointF(scalex(ankle.x), scaley(ankle.y))
-        )
-        canvas.drawText(
-            ("${joints[3].name} " + "%.1f°").format(angleKnee),
-            scalex(knee.x) + 20,
-            scaley(knee.y) - 20,
-            textPaint
-        )
+        drawAngle(joints[0],joints[1],joints[2],canvas)
+        drawAngle(joints[1],joints[2],joints[3],canvas)
+        drawAngle(joints[2],joints[3],joints[4],canvas)
     }
-
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
@@ -151,19 +70,88 @@ class SidePoseOverlayView @JvmOverloads constructor(context: Context, attrs: Att
         }
         return true
     }
-
     private fun findTouchedJoint(x: Float, y: Float): Joint? {
         return joints.find {
             hypot(scalex(it.x) - x, scaley(it.y) - y) <= touchRadius
         }
     }
+    fun drawJoints(canvas: Canvas){
+        val jointPaint = Paint().apply {
+            color = Color.RED
+            style = Paint.Style.FILL
+            isAntiAlias = true
+        }
+        for (i in 0..4) {
+            val joint = joints[i]
+            canvas.drawCircle(
+                scalex(joint.x),
+                scaley(joint.y),
+                18f,
+                jointPaint
+            )
+        }
+    }
+    fun drawLineInJoints(startPoint: Joint, endPoint: Joint, canvas: Canvas){
+        val linePaint = Paint().apply {
+            color = Color.GREEN
+            strokeWidth = 6f
+            isAntiAlias = true
+        }
+        canvas.drawLine(
+            scalex(startPoint.x), scaley(startPoint.y),
+            scalex(endPoint.x), scaley(endPoint.y),
+            linePaint
+        )
+    }
+    fun drawAngle(a: Joint, b: Joint, c: Joint, canvas: Canvas) {
+        val textPaint = Paint().apply {
+            color = Color.YELLOW
+            textSize = 32f
+            isAntiAlias = true
+        }
+        val angle = calculateAngle(
+            PointF(scalex(a.x), scaley(a.y)),
+            PointF(scalex(b.x), scaley(b.y)),
+            PointF(scalex(c.x), scaley(c.y))
+        )
+        val text = "%.1f°".format(angle)
 
+        val x = scalex(b.x) + 20
+        val y = scaley(b.y) - 20
+
+        val textBounds = Rect()
+        textPaint.getTextBounds(text, 0, text.length, textBounds)
+        val padding = 12f
+
+        val rectLeft = x - padding
+        val rectTop = y - textBounds.height() - padding
+        val rectRight = x + textBounds.width() + padding
+        val rectBottom = y + padding
+
+        val bgPaint = Paint().apply {
+            color = Color.BLACK
+            style = Paint.Style.FILL
+            isAntiAlias = true
+        }
+        canvas.drawRoundRect(
+            rectLeft,
+            rectTop,
+            rectRight,
+            rectBottom,
+            25f,   // corner radius X
+            25f,   // corner radius Y
+            bgPaint
+        )
+        val textX = x
+        val textY = y
+        canvas.drawText(text, textX, textY, textPaint)
+    }
     private fun calculateAngle(a: PointF, b: PointF, c: PointF): Double {
         val abX = a.x - b.x
         val abY = a.y - b.y
         val cbX = c.x - b.x
         val cbY = c.y - b.y
-        
+
         val dot = abX * cbX + abY * cbY
         val magAB = sqrt(abX * abX + abY * abY)
         val magCB = sqrt(cbX * cbX + cbY * cbY)

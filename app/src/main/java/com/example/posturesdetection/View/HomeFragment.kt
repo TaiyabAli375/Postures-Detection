@@ -112,9 +112,6 @@ class HomeFragment : Fragment() {
         cameraActivityResultLauncher.launch(cameraIntent)
     }
     fun observePostures() {
-//        viewModel.bitmapWithSkeleton.observe(viewLifecycleOwner, Observer{
-//            imageView.setImageBitmap(it)
-//        })
         viewModel.imageBmp.observe(viewLifecycleOwner, Observer {
             imageView.setImageBitmap(it)
         })
@@ -143,7 +140,13 @@ class HomeFragment : Fragment() {
             status.append("2. $neckTilt\n")
 
             val shoulderDrop = posture.shoulderDrop
-            status.append("3. $shoulderDrop")
+            status.append("3. $shoulderDrop\n")
+
+            val isVarusOrValgus = posture.isVarusOrValgus
+            status.append("4. $isVarusOrValgus\n")
+
+            val hipHike = posture.hipHike
+            status.append("5. $hipHike")
 
             resultTv.text = if (status.isNotEmpty()) status.toString()
                 else "Unknown"
