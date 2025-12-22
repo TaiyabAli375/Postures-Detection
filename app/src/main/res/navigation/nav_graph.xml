@@ -7,7 +7,7 @@
 
     <fragment
         android:id="@+id/homeFragment"
-        android:name="com.example.posturesdetection.HomeFragment"
+        android:name="com.example.posturesdetection.View.HomeFragment"
         android:label="fragment_home"
         tools:layout="@layout/fragment_home" >
         <action
@@ -16,7 +16,7 @@
     </fragment>
     <fragment
         android:id="@+id/sidePoseFragment"
-        android:name="com.example.posturesdetection.SidePoseFragment"
+        android:name="com.example.posturesdetection.View.SidePoseFragment"
         android:label="fragment_side_pose"
         tools:layout="@layout/fragment_side_pose" />
 </navigation>

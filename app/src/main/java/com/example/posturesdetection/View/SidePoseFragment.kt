@@ -1,17 +1,20 @@
-package com.example.posturesdetection
+package com.example.posturesdetection.View
 
 import android.os.Bundle
-import android.util.Log
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
+import com.example.posturesdetection.ViewModel.PosturesViewModel
+import com.example.posturesdetection.R
 
 class SidePoseFragment : Fragment() {
     private lateinit var viewModel: PosturesViewModel
     private lateinit var imageView: ImageView
+
+    private lateinit var sidePoseOverlay: SidePoseOverlayView
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -24,12 +27,22 @@ class SidePoseFragment : Fragment() {
 
         viewModel = (requireActivity() as MainActivity).viewModel
         imageView = view.findViewById(R.id.sidePoseAnalysisIV)
+        sidePoseOverlay = view.findViewById(R.id.sidePoseOverlay)
 
         observePostures()
     }
     fun observePostures() {
-        viewModel.bmpForSidePose.observe(viewLifecycleOwner, Observer{
+        viewModel.imageBmp.observe(viewLifecycleOwner, Observer {
             imageView.setImageBitmap(it)
         })
+        viewModel.landmarkForOverlay.observe(viewLifecycleOwner) { joints ->
+            val drawable = imageView.drawable ?: return@observe
+
+            sidePoseOverlay.setImageSize(
+                drawable.intrinsicWidth.toFloat(),
+                drawable.intrinsicHeight.toFloat()
+            )
+            sidePoseOverlay.setJoints(joints)
+        }
     }
 }

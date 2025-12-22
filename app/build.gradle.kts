@@ -40,6 +40,7 @@ android {
 
 dependencies {
     implementation(libs.androidx.fragment)
+    implementation(libs.androidx.ui.geometry)
     val nav_version = "2.5.3"
     val lifecycle_version = "2.10.0"
     implementation(libs.androidx.core.ktx)

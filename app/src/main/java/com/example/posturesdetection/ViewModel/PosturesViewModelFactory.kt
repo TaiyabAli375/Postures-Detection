@@ -1,7 +1,8 @@
-package com.example.posturesdetection
+package com.example.posturesdetection.ViewModel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.example.posturesdetection.Model.PostureRepository
 
 class PosturesViewModelFactory(private val repository: PostureRepository) : ViewModelProvider.Factory {
 

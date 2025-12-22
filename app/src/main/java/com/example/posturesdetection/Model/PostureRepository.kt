@@ -1,14 +1,9 @@
-package com.example.posturesdetection
+package com.example.posturesdetection.Model
 
-import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.net.Uri
-import android.provider.MediaStore
 import android.util.Log
-import androidx.core.content.ContextCompat
+import com.example.posturesdetection.Model.Postures
+import com.example.posturesdetection.View.Joint
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.common.PointF3D
 import com.google.mlkit.vision.pose.Pose
@@ -16,12 +11,8 @@ import com.google.mlkit.vision.pose.PoseDetection
 import com.google.mlkit.vision.pose.PoseDetector
 import com.google.mlkit.vision.pose.PoseLandmark
 import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions
-enum class NeckPosture {
-    STRAIGHT,
-    TILTED_LEFT,
-    TILTED_RIGHT,
-    UNKNOWN
-}
+import kotlin.math.abs
+
 class PostureRepository() {
     private lateinit var poseDetector: PoseDetector
     private var leftShoulder: PointF3D? = null
@@ -40,7 +31,7 @@ class PostureRepository() {
             .build()
         poseDetector = PoseDetection.getClient(options)
     }
-    fun detectPose(imageBmp: Bitmap, onResult: (Postures, Bitmap)->Unit){
+    fun detectPose(imageBmp: Bitmap, onResult: (Postures, List<Joint>)->Unit){
         val image = InputImage.fromBitmap(imageBmp,0)
         poseDetector.process(image)
             .addOnSuccessListener { pose ->
@@ -55,10 +46,12 @@ class PostureRepository() {
                 val postures = Postures(
                     isSitting = detectSitting(),
                     isStanding = detectStanding(),
-                    neckTilt = detectNeckTilt(pose)
+                    neckTilt = detectNeckTilt(pose),
+                    shoulderDrop = detectShoulderDrop(pose)
                 )
-                val bitmapWithSkeleton = drawSkeletonOnBitmap(imageBmp, pose)
-                onResult(postures, bitmapWithSkeleton)
+//                val bitmapWithSkeleton = drawSkeletonOnBitmap(imageBmp,pose)
+                val joints = landmarksForOverlay(pose)
+                onResult(postures, joints)
             }
             .addOnFailureListener { e ->
                 e.printStackTrace()
@@ -101,7 +94,7 @@ class PostureRepository() {
 
         return isKneeNotBent && isHipNotBent
     }
-    fun detectNeckTilt(pose: Pose): NeckPosture {
+    fun detectNeckTilt(pose: Pose): String {
         val leftEar = pose.getPoseLandmark(PoseLandmark.LEFT_EAR)
         val rightEar = pose.getPoseLandmark(PoseLandmark.RIGHT_EAR)
         val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
@@ -110,18 +103,32 @@ class PostureRepository() {
         if (leftEar == null || rightEar == null ||
             leftShoulder == null || rightShoulder == null
         ) {
-            return NeckPosture.UNKNOWN
+            return "Unknown"
         }
 
         val headMidX = (leftEar.position.x + rightEar.position.x) / 2f
         val shoulderMidX = (leftShoulder.position.x + rightShoulder.position.x) / 2f
 
-        val tiltThreshold = 20f
+        val tiltThreshold = 10f
 
         return when {
-            headMidX > shoulderMidX + tiltThreshold -> NeckPosture.TILTED_RIGHT
-            headMidX < shoulderMidX - tiltThreshold -> NeckPosture.TILTED_LEFT
-            else -> NeckPosture.STRAIGHT
+            headMidX > shoulderMidX + tiltThreshold -> "Neck is tilted Right"
+            headMidX < shoulderMidX - tiltThreshold -> "Neck is tilted Left"
+            else -> "Neck is Straight"
+        }
+    }
+    fun detectShoulderDrop(pose: Pose): String {
+        val threshold: Float = 0.05f
+        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
+        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
+        if (leftShoulder == null || rightShoulder == null) return "Shoulders not detected"
+
+        val diff = rightShoulder.position.y - leftShoulder.position.y
+
+        return when {
+            abs(diff) < threshold -> "Shoulders are level"
+            diff > threshold -> "Right shoulder dropped"
+            else -> "Left shoulder dropped"
         }
     }
     fun getAngle(a: PointF3D?, b: PointF3D?, c: PointF3D?): Double {
@@ -144,56 +151,53 @@ class PostureRepository() {
         val cosine = dot / (magAB * magCB)
         return Math.toDegrees(Math.acos(cosine))
     }
-    //   Skeleton Drawing Functions -----------------------------------------------------------
-    fun drawSkeletonOnBitmap(imageBmp: Bitmap, pose:Pose): Bitmap{
-        var mutableBmp = imageBmp.copy(Bitmap.Config.ARGB_8888,true)
-        val canvas = Canvas(mutableBmp)
-        var paint = Paint()
-        paint.color = Color.RED
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth =7f
+    //  function to send landmarks------------------------------------------------------------
+    fun landmarksForOverlay(pose: Pose): List<Joint> {
+        val leftEar = pose.getPoseLandmark(PoseLandmark.LEFT_EAR)
+        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
+        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
+        val leftKnee = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE)
+        val leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
+        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
+        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
+        val rightKnee = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
+        val rightAnkle = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
+        val leftElbow = pose.getPoseLandmark(PoseLandmark.LEFT_ELBOW)
+        val leftWrist = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
+        val rightElbow = pose.getPoseLandmark(PoseLandmark.RIGHT_ELBOW)
+        val rightWrist = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
 
-        drawSkeleton(pose,canvas, PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_ELBOW,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.LEFT_ELBOW, PoseLandmark.LEFT_WRIST,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.LEFT_WRIST, PoseLandmark.LEFT_PINKY,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.LEFT_WRIST, PoseLandmark.LEFT_THUMB,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.LEFT_WRIST, PoseLandmark.LEFT_INDEX,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.LEFT_SHOULDER, PoseLandmark.RIGHT_SHOULDER,paint)
-
-        drawSkeleton(pose,canvas, PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_ELBOW,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.RIGHT_ELBOW, PoseLandmark.RIGHT_WRIST,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.RIGHT_WRIST, PoseLandmark.RIGHT_PINKY,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.RIGHT_WRIST, PoseLandmark.RIGHT_THUMB,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.RIGHT_WRIST, PoseLandmark.RIGHT_INDEX,paint)
-
-        drawSkeleton(pose,canvas, PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_HIP,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_HIP,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.RIGHT_HIP, PoseLandmark.LEFT_HIP,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.LEFT_HIP, PoseLandmark.LEFT_KNEE,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.LEFT_KNEE, PoseLandmark.LEFT_ANKLE,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.LEFT_ANKLE, PoseLandmark.LEFT_HEEL,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.LEFT_HEEL, PoseLandmark.LEFT_FOOT_INDEX,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.LEFT_FOOT_INDEX, PoseLandmark.LEFT_ANKLE,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.RIGHT_HIP, PoseLandmark.RIGHT_KNEE,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.RIGHT_KNEE, PoseLandmark.RIGHT_ANKLE,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.RIGHT_ANKLE, PoseLandmark.RIGHT_HEEL,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.RIGHT_HEEL, PoseLandmark.RIGHT_FOOT_INDEX,paint)
-        drawSkeleton(pose,canvas, PoseLandmark.RIGHT_FOOT_INDEX, PoseLandmark.RIGHT_ANKLE,paint)
-        return mutableBmp
-    }
-    fun drawSkeleton(pose: Pose,canvas: Canvas,startPoint:Int,endPoint:Int,paint: Paint){
-        var startLandmark = pose.getPoseLandmark(startPoint)
-        var endLandmark = pose.getPoseLandmark(endPoint)
-        if(startLandmark!= null && endLandmark != null) {
-            canvas.drawLine(
-                startLandmark.position.x,
-                startLandmark.position.y,
-                endLandmark.position.x,
-                endLandmark.position.y,
-                paint
-            )
-            canvas.drawCircle(startLandmark.position.x, startLandmark.position.y, 15f, paint)
-            canvas.drawCircle(endLandmark.position.x, endLandmark.position.y, 15f, paint)
+        if (leftEar == null ||
+            leftShoulder == null ||
+            leftElbow == null ||
+            leftWrist == null ||
+            leftHip == null ||
+            leftKnee == null ||
+            leftAnkle == null ||
+            rightShoulder == null ||
+            rightHip == null ||
+            rightKnee == null ||
+            rightAnkle == null ||
+            rightElbow == null ||
+            rightWrist == null
+            ) {
+            return emptyList()
         }
+
+        return listOf(
+            Joint("Head", leftEar.position.x, leftEar.position.y),
+            Joint("Left Shoulder", leftShoulder.position.x, leftShoulder.position.y),
+            Joint("Left Hip", leftHip.position.x, leftHip.position.y),
+            Joint("Left Knee", leftKnee.position.x, leftKnee.position.y),
+            Joint("Left Ankle", leftAnkle.position.x, leftAnkle.position.y),
+            Joint("Right Shoulder", rightShoulder.position.x, rightShoulder.position.y),
+            Joint("Right Hip", rightHip.position.x, rightHip.position.y),
+            Joint("Right Knee", rightKnee.position.x, rightKnee.position.y),
+            Joint("Right Ankle", rightAnkle.position.x, rightAnkle.position.y),
+            Joint("Left Elbow", leftElbow.position.x, leftElbow.position.y),
+            Joint("Left Wrist", leftWrist.position.x, leftWrist.position.y),
+            Joint("Right Elbow", rightElbow.position.x, rightElbow.position.y),
+            Joint("Right Wrist", rightWrist.position.x, rightWrist.position.y)
+        )
     }
 }
